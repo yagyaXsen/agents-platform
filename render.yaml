@@ -1,0 +1,31 @@
+# One-click deploy on Render: New → Blueprint → select this repo.
+# Fill the "sync: false" values in the Render dashboard when asked.
+services:
+  - type: web
+    name: agentgrid-poc
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: agentgrid-db
+          property: connectionString
+      - key: LLM_BASE_URL
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_WHATSAPP_FROM
+        sync: false
+
+databases:
+  - name: agentgrid-db
+    plan: free

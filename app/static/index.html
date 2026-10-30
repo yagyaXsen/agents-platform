@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentGrid PoC</title>
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:#0f172a; background:#f8fafc; }
+  .wrap { max-width:960px; margin:0 auto; padding:56px 20px; }
+  h1 { font-size:clamp(30px,4.5vw,44px); letter-spacing:-.02em; margin:0 0 10px; }
+  .lead { color:#475569; font-size:17px; max-width:62ch; line-height:1.55; margin:0 0 36px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; }
+  .card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:22px; display:flex; flex-direction:column; gap:10px; }
+  .card h2 { font-size:17px; margin:0; }
+  .card p { margin:0; color:#475569; font-size:14px; line-height:1.5; flex:1; }
+  .card a { align-self:flex-start; background:#0f172a; color:#fff; text-decoration:none; padding:10px 14px; border-radius:9px; font-weight:600; font-size:14px; }
+  table { width:100%; border-collapse:collapse; margin-top:36px; background:#fff; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; font-size:14px; }
+  th, td { text-align:left; padding:10px 14px; border-bottom:1px solid #e2e8f0; }
+  th { background:#f1f5f9; font-weight:600; }
+  code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; }
+  .muted { color:#64748b; font-size:13px; margin-top:12px; }
+  ul.feat { columns:2; padding-left:18px; color:#334155; font-size:14px; line-height:1.8; margin:36px 0 0; }
+  @media (max-width:600px){ ul.feat{columns:1} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>AgentGrid · proof of concept</h1>
+  <p class="lead">Multi-tenant AI agents that answer customers from a business's own documents, qualify leads,
+    book appointments and hand over to a person when needed, on web chat and WhatsApp. Two demo businesses run
+    on the same platform with fully separate data.</p>
+
+  <div class="grid">
+    <div class="card"><h2>Smile Dental Clinic</h2><p>Treatment and price questions, consultation booking.</p><a href="/demo?tenant=smile-dental">Open website with chat →</a></div>
+    <div class="card"><h2>Skyline Homes</h2><p>Buy or rent enquiries, lead qualification, site-visit booking.</p><a href="/demo?tenant=skyline-homes">Open website with chat →</a></div>
+    <div class="card"><h2>Admin console</h2><p>Live inbox for handovers, conversations, leads, bookings, knowledge base and analytics.</p><a href="/admin">Open admin →</a></div>
+    <div class="card"><h2>API</h2><p>OpenAPI docs for the chat, admin and channel endpoints.</p><a href="/docs">Open API docs →</a></div>
+  </div>
+
+  <table>
+    <tr><th>Demo business</th><th>Admin key</th><th>Widget key (public)</th></tr>
+    <tr><td>Smile Dental Clinic</td><td><code>sk_demo_smile_dental</code></td><td><code>pk_demo_smile_dental</code></td></tr>
+    <tr><td>Skyline Homes</td><td><code>sk_demo_skyline_homes</code></td><td><code>pk_demo_skyline_homes</code></td></tr>
+  </table>
+  <p class="muted">Demo keys are fixed for evaluation. Real tenants get random keys, and admin keys are stored only as hashes.</p>
+
+  <ul class="feat">
+    <li>RAG answers with sources, from uploaded documents</li>
+    <li>Rule-based dialogue manager + LLM only for free-text answers</li>
+    <li>Configurable lead qualification per business</li>
+    <li>Appointment booking with real free slots, no double booking</li>
+    <li>Human handover on request or low confidence, with full history</li>
+    <li>Web chat widget and WhatsApp (Twilio) on one message pipeline</li>
+    <li>Tenant isolation on every query, hashed admin keys</li>
+    <li>PII redaction in logs, masked phone numbers, per-tenant LLM quota</li>
+  </ul>
+</div>
+</body>
+</html>

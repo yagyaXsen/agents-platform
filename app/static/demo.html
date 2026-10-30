@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo business website · AgentGrid PoC</title>
+<style>
+  :root { --ink:#0f172a; --muted:#475569; --line:#e2e8f0; --bg:#f8fafc; --accent:#0f766e; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--ink); background:#fff; }
+  .bar { background:var(--ink); color:#e2e8f0; font-size:13px; padding:8px 16px; display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:center; }
+  .bar a { color:#fff; padding:4px 10px; border-radius:6px; text-decoration:none; border:1px solid #334155; }
+  .bar a.on { background:#fff; color:var(--ink); }
+  header { border-bottom:1px solid var(--line); }
+  .wrap { max-width:1040px; margin:0 auto; padding:0 20px; }
+  nav { display:flex; justify-content:space-between; align-items:center; height:64px; }
+  nav b { font-size:18px; }
+  nav span { color:var(--muted); font-size:14px; }
+  .hero { padding:72px 0 56px; }
+  .hero h1 { font-size:clamp(32px,5vw,52px); line-height:1.05; letter-spacing:-.02em; margin:0 0 16px; max-width:16ch; }
+  .hero p { font-size:18px; color:var(--muted); max-width:52ch; margin:0 0 28px; }
+  .cta { display:inline-block; background:var(--accent); color:#fff; padding:12px 18px; border-radius:10px; font-weight:600; text-decoration:none; cursor:pointer; border:0; font-size:15px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; padding:0 0 72px; }
+  .card { border:1px solid var(--line); border-radius:14px; padding:20px; background:var(--bg); }
+  .card h3 { margin:0 0 6px; font-size:16px; }
+  .card p { margin:0; color:var(--muted); font-size:14px; line-height:1.5; }
+  .try { background:#ecfeff; border:1px dashed #67e8f9; border-radius:14px; padding:18px 20px; margin:0 0 72px; font-size:14px; line-height:1.6; }
+  .try code { background:#fff; border:1px solid var(--line); padding:1px 6px; border-radius:6px; }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <span>AgentGrid PoC · demo business:</span>
+    <a href="?tenant=smile-dental" data-t="smile-dental">Smile Dental Clinic</a>
+    <a href="?tenant=skyline-homes" data-t="skyline-homes">Skyline Homes</a>
+    <a href="/admin">Admin console →</a>
+  </div>
+  <header><div class="wrap"><nav><b id="name"></b><span id="tag"></span></nav></div></header>
+  <main class="wrap">
+    <section class="hero">
+      <h1 id="headline"></h1>
+      <p id="sub"></p>
+      <button class="cta" id="open">Chat with us</button>
+    </section>
+    <section class="grid" id="cards"></section>
+    <section class="try">
+      <b>Try asking:</b> <span id="prompts"></span><br>
+      The assistant answers from this business's own documents, qualifies you, offers real free slots and books one.
+      Type <code>human</code> at any time to hand over to the team, then reply from the <a href="/admin">admin console</a>.
+    </section>
+  </main>
+
+<script>
+  var SITES = {
+    "smile-dental": {
+      key: "pk_demo_smile_dental", accent: "#0f766e", name: "Smile Dental Clinic", tag: "Sector 15, Gurugram",
+      headline: "Gentle dental care, six days a week.",
+      sub: "Check-ups, whitening, fillings, root canals and aligners, with two experienced dentists.",
+      cards: [["Check-up and cleaning", "40 minutes, from ₹800."], ["Teeth whitening", "In-clinic, ₹6,500 per session."], ["Open Mon–Sat", "10:00 to 18:00. Parking in the basement."]],
+      prompts: "\"How much is teeth whitening?\" · \"What are your timings?\" · \"Do you accept insurance?\" · \"I want to book an appointment\""
+    },
+    "skyline-homes": {
+      key: "pk_demo_skyline_homes", accent: "#1d4ed8", name: "Skyline Homes", tag: "Gurugram · South Delhi",
+      headline: "Find your next home in Gurugram and South Delhi.",
+      sub: "Apartments, builder floors and villas to buy or rent, with free accompanied site visits.",
+      cards: [["Rent", "2 BHK on Sohna Road from ₹30,000 a month."], ["Buy", "3 BHK on Golf Course Road from ₹2.5 crore."], ["Site visits", "Free, Monday to Saturday."]],
+      prompts: "\"What is your brokerage fee?\" · \"Which areas do you cover?\" · \"What documents do I need to rent?\" · \"Book a site visit\""
+    }
+  };
+  var slug = new URLSearchParams(location.search).get("tenant") || "smile-dental";
+  var site = SITES[slug] || SITES["smile-dental"];
+  document.documentElement.style.setProperty("--accent", site.accent);
+  document.title = site.name + " · AgentGrid demo";
+  document.getElementById("name").textContent = site.name;
+  document.getElementById("tag").textContent = site.tag;
+  document.getElementById("headline").textContent = site.headline;
+  document.getElementById("sub").textContent = site.sub;
+  document.getElementById("prompts").textContent = site.prompts;
+  document.getElementById("cards").innerHTML = site.cards.map(function (c) {
+    return '<div class="card"><h3>' + c[0] + '</h3><p>' + c[1] + '</p></div>';
+  }).join("");
+  document.querySelectorAll(".bar a[data-t]").forEach(function (a) { a.classList.toggle("on", a.dataset.t === slug); });
+
+  var s = document.createElement("script");
+  s.src = "/static/widget.js";
+  s.dataset.key = site.key;
+  s.dataset.accent = site.accent;
+  document.body.appendChild(s);
+  document.getElementById("open").addEventListener("click", function () {
+    var w = document.getElementById("agentgrid-widget");
+    if (w && w.shadowRoot) w.shadowRoot.querySelector(".fab").click();
+  });
+</script>
+</body>
+</html>

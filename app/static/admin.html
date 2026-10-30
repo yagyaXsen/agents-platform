@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin · AgentGrid</title>
+<style>
+  :root { --ink:#0f172a; --text:#334155; --muted:#64748b; --line:#e2e8f0; --bg:#f8fafc; --accent:#0f172a; --warn:#b45309; --warn-bg:#fef3c7; --ok:#047857; --ok-bg:#d1fae5; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--text); background:var(--bg); font-size:14px; }
+  button, input, textarea, select { font:inherit; }
+  .btn { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:8px; padding:8px 12px; cursor:pointer; font-weight:600; }
+  .btn.primary { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .btn:disabled { opacity:.6; cursor:wait; }
+  input[type=text], input[type=password], textarea { width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:9px 11px; background:#fff; color:var(--ink); }
+  textarea { resize:vertical; min-height:120px; }
+  h1, h2, h3 { color:var(--ink); margin:0; }
+  /* login */
+  #login { max-width:420px; margin:12vh auto; background:#fff; border:1px solid var(--line); border-radius:16px; padding:28px; }
+  #login h1 { font-size:22px; margin-bottom:6px; }
+  #login p { color:var(--muted); margin:0 0 18px; }
+  #login form { display:flex; flex-direction:column; gap:10px; }
+  .demo-keys { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+  .err { color:#b91c1c; font-size:13px; min-height:18px; }
+  /* app */
+  #app { display:none; min-height:100vh; }
+  aside { position:fixed; inset:0 auto 0 0; width:220px; background:#fff; border-right:1px solid var(--line); padding:18px 12px; display:flex; flex-direction:column; gap:4px; }
+  aside .brand { font-weight:700; color:var(--ink); font-size:15px; padding:0 10px 2px; }
+  aside .tenant { color:var(--muted); font-size:12.5px; padding:0 10px 14px; }
+  aside a { display:flex; justify-content:space-between; align-items:center; padding:9px 10px; border-radius:8px; color:var(--text); text-decoration:none; cursor:pointer; }
+  aside a.on { background:#f1f5f9; color:var(--ink); font-weight:600; }
+  .pill { background:var(--warn-bg); color:var(--warn); border-radius:999px; padding:1px 8px; font-size:12px; font-weight:700; }
+  aside .spacer { flex:1; }
+  main { margin-left:220px; padding:28px 32px; max-width:1180px; }
+  .top { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; gap:12px; flex-wrap:wrap; }
+  .top h2 { font-size:22px; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin-bottom:20px; }
+  .stat { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .stat small { color:var(--muted); display:block; margin-bottom:4px; }
+  .stat b { font-size:24px; color:var(--ink); }
+  .panel { background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; margin-bottom:20px; }
+  .panel h3 { font-size:14px; padding:12px 16px; border-bottom:1px solid var(--line); }
+  .panel .body { padding:14px 16px; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:10px 16px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { background:#f8fafc; color:var(--muted); font-weight:600; font-size:12.5px; }
+  tr.click { cursor:pointer; }
+  tr.click:hover td { background:#f8fafc; }
+  .tag { display:inline-block; border-radius:6px; padding:1px 7px; font-size:12px; font-weight:600; background:#f1f5f9; color:var(--text); }
+  .tag.handover { background:var(--warn-bg); color:var(--warn); }
+  .tag.booked, .tag.bot { background:var(--ok-bg); color:var(--ok); }
+  .empty { color:var(--muted); padding:22px 16px; }
+  .bars div { display:flex; align-items:center; gap:10px; margin:6px 0; }
+  .bars span:first-child { width:140px; color:var(--muted); }
+  .bars i { display:block; height:10px; background:var(--ink); border-radius:4px; }
+  code.snippet { display:block; background:#0f172a; color:#e2e8f0; padding:12px 14px; border-radius:8px; font-size:12.5px; white-space:pre-wrap; word-break:break-all; }
+  /* conversation drawer */
+  #drawer { position:fixed; top:0; right:0; bottom:0; width:min(520px,100%); background:#fff; border-left:1px solid var(--line); box-shadow:-12px 0 32px rgba(15,23,42,.08); display:none; flex-direction:column; z-index:10; }
+  #drawer.open { display:flex; }
+  #drawer header { padding:14px 16px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  #drawer .lead { padding:10px 16px; border-bottom:1px solid var(--line); background:#f8fafc; font-size:13px; }
+  #thread { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:8px; background:#f8fafc; }
+  .m { max-width:85%; padding:8px 11px; border-radius:12px; line-height:1.45; white-space:pre-wrap; }
+  .m.user { align-self:flex-start; background:#fff; border:1px solid var(--line); }
+  .m.bot { align-self:flex-end; background:#e2e8f0; }
+  .m.agent { align-self:flex-end; background:var(--ink); color:#fff; }
+  .m.system { align-self:center; color:var(--muted); font-size:12px; }
+  .m small { display:block; font-size:11px; opacity:.7; margin-bottom:2px; }
+  #replyForm { display:flex; gap:8px; padding:12px; border-top:1px solid var(--line); }
+  #replyForm input { flex:1; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  @media (max-width:760px) { aside { position:static; width:auto; flex-direction:row; flex-wrap:wrap; } main { margin:0; padding:18px; } aside .spacer, aside .tenant { display:none; } }
+</style>
+</head>
+<body>
+
+<section id="login">
+  <h1>Admin console</h1>
+  <p>Sign in with your business's admin key.</p>
+  <form id="loginForm">
+    <input type="password" id="key" placeholder="sk_…" autocomplete="off" aria-label="Admin key">
+    <div class="err" id="loginErr"></div>
+    <button class="btn primary" type="submit">Sign in</button>
+  </form>
+  <div class="demo-keys">
+    <button class="btn" data-k="sk_demo_smile_dental">Demo: Smile Dental</button>
+    <button class="btn" data-k="sk_demo_skyline_homes">Demo: Skyline Homes</button>
+  </div>
+</section>
+
+<div id="app">
+  <aside>
+    <div class="brand">AgentGrid</div>
+    <div class="tenant" id="tenantName"></div>
+    <a data-view="overview">Overview</a>
+    <a data-view="inbox">Handover inbox <span class="pill" id="inboxCount" hidden>0</span></a>
+    <a data-view="conversations">Conversations</a>
+    <a data-view="leads">Leads</a>
+    <a data-view="bookings">Bookings</a>
+    <a data-view="knowledge">Knowledge base</a>
+    <a data-view="install">Install on a website</a>
+    <div class="spacer"></div>
+    <a id="logout">Sign out</a>
+  </aside>
+  <main id="view"></main>
+</div>
+
+<section id="drawer" aria-label="Conversation">
+  <header>
+    <div><b id="dTitle">Conversation</b><div id="dMeta" style="color:var(--muted);font-size:12.5px"></div></div>
+    <div class="row">
+      <button class="btn" id="resolveBtn">Hand back to bot</button>
+      <button class="btn" id="closeDrawer" aria-label="Close">✕</button>
+    </div>
+  </header>
+  <div class="lead" id="dLead" hidden></div>
+  <div id="thread"></div>
+  <form id="replyForm">
+    <input type="text" id="replyText" placeholder="Reply as the team…" maxlength="2000" aria-label="Reply">
+    <button class="btn primary" type="submit">Send</button>
+  </form>
+</section>
+
+<script>
+(function () {
+  "use strict";
+  var KEY = sessionStorage.getItem("ag_admin") || "";
+  var me = null, view = "overview", openConv = null, timer = null;
+  var $ = function (s) { return document.querySelector(s); };
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function when(iso) {
+    if (!iso) return "";
+    var d = new Date(iso.endsWith("Z") ? iso : iso + "Z");
+    return d.toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  }
+  function pct(x) { return Math.round((x || 0) * 100) + "%"; }
+
+  function api(method, path, body, isForm) {
+    var headers = { Authorization: "Bearer " + KEY };
+    if (body && !isForm) headers["Content-Type"] = "application/json";
+    return fetch(path, { method: method, headers: headers, body: body ? (isForm ? body : JSON.stringify(body)) : undefined })
+      .then(function (r) {
+        if (r.status === 401) { logout(); throw new Error("Signed out"); }
+        return r.json().then(function (d) { if (!r.ok) throw new Error(d.detail || ("HTTP " + r.status)); return d; });
+      });
+  }
+
+  // ---------- auth
+  function login(k) {
+    KEY = k.trim();
+    return api("GET", "/v1/admin/me").then(function (d) {
+      me = d; sessionStorage.setItem("ag_admin", KEY);
+      $("#login").style.display = "none"; $("#app").style.display = "block";
+      $("#tenantName").textContent = d.name;
+      go("overview");
+      clearInterval(timer); timer = setInterval(tick, 5000); tick();
+    });
+  }
+  function logout() {
+    sessionStorage.removeItem("ag_admin"); KEY = ""; clearInterval(timer);
+    $("#app").style.display = "none"; $("#login").style.display = "block"; closeDrawer();
+  }
+  $("#loginForm").addEventListener("submit", function (e) {
+    e.preventDefault(); $("#loginErr").textContent = "";
+    login($("#key").value).catch(function () { $("#loginErr").textContent = "That key didn't work."; });
+  });
+  document.querySelectorAll(".demo-keys .btn").forEach(function (b) {
+    b.addEventListener("click", function () { $("#key").value = b.dataset.k; login(b.dataset.k).catch(function () {
+      $("#loginErr").textContent = "Demo tenant not found. Run: python -m app.seed"; }); });
+  });
+  $("#logout").addEventListener("click", logout);
+
+  // ---------- navigation
+  document.querySelectorAll("aside a[data-view]").forEach(function (a) {
+    a.addEventListener("click", function () { go(a.dataset.view); });
+  });
+  function go(v) {
+    view = v;
+    document.querySelectorAll("aside a[data-view]").forEach(function (a) { a.classList.toggle("on", a.dataset.view === v); });
+    render();
+  }
+  function tick() {
+    api("GET", "/v1/admin/conversations?status_filter=handover").then(function (rows) {
+      var n = rows.length, pill = $("#inboxCount");
+      pill.hidden = n === 0; pill.textContent = n;
+    }).catch(function () {});
+    if (view === "inbox" || view === "overview" || view === "conversations") render(true);
+    if (openConv) loadConv(openConv, true);
+  }
+
+  var VIEWS = {
+    overview: function () {
+      return api("GET", "/v1/admin/analytics").then(function (s) {
+        var intents = Object.entries(s.by_intent || {}).sort(function (a, b) { return b[1] - a[1]; });
+        var max = intents.length ? intents[0][1] : 1;
+        return '<div class="top"><h2>Overview</h2></div>' +
+          '<div class="cards">' +
+          stat("Conversations", s.conversations) + stat("Leads", s.leads + " · " + pct(s.lead_conversion_rate)) +
+          stat("Bookings", s.bookings + " · " + pct(s.booking_rate)) + stat("Handed to team", s.handovers + " · " + pct(s.escalation_rate)) +
+          stat("Waiting for team", s.open_handovers) + stat("LLM tokens used", Number(s.llm_tokens_used).toLocaleString() + " / " + Number(s.llm_token_quota).toLocaleString()) +
+          '</div>' +
+          '<div class="panel"><h3>What the agent did</h3><div class="body bars">' +
+          (intents.length ? intents.map(function (e) {
+            return '<div><span>' + esc(e[0].replace(/_/g, " ")) + '</span><i style="width:' + Math.max(4, Math.round(e[1] / max * 320)) + 'px"></i><span>' + e[1] + '</span></div>';
+          }).join("") : '<div class="empty">No conversations yet. Open the demo website and start a chat.</div>') +
+          '</div></div>' +
+          '<div class="panel"><h3>Channels</h3><div class="body">' +
+          (Object.keys(s.by_channel || {}).length ? Object.entries(s.by_channel).map(function (e) { return '<span class="tag">' + esc(e[0]) + ': ' + e[1] + '</span> '; }).join("") : '<span style="color:var(--muted)">No data yet</span>') +
+          '</div></div>';
+      });
+    },
+    inbox: function () { return convTable("Handover inbox", "handover", "Nobody is waiting. Conversations appear here when a customer asks for a person or the agent isn't confident."); },
+    conversations: function () { return convTable("Conversations", "", "No conversations yet."); },
+    leads: function () {
+      return api("GET", "/v1/admin/leads").then(function (rows) {
+        return '<div class="top"><h2>Leads</h2></div><div class="panel">' + (rows.length ?
+          '<table><tr><th>Name</th><th>Details</th><th>Contact</th><th>Score</th><th>Status</th><th>Created</th></tr>' +
+          rows.map(function (l) {
+            var d = l.data || {}, details = Object.keys(d).filter(function (k) { return ["name", "phone", "email"].indexOf(k) < 0; })
+              .map(function (k) { return "<b>" + esc(k) + ":</b> " + esc(d[k]); }).join("<br>");
+            return '<tr class="click" data-conv="' + l.conversation_id + '"><td>' + esc(d.name || "—") + '</td><td>' + (details || "—") + '</td><td>' +
+              esc(d.phone || "") + (d.phone && d.email ? "<br>" : "") + esc(d.email || "") + '</td><td><b>' + l.score + '</b></td><td><span class="tag ' + esc(l.status) + '">' +
+              esc(l.status.replace(/_/g, " ")) + '</span></td><td>' + when(l.created_at) + '</td></tr>';
+          }).join("") + '</table>' : '<div class="empty">No leads yet.</div>') + '</div>';
+      });
+    },
+    bookings: function () {
+      return api("GET", "/v1/admin/bookings").then(function (rows) {
+        return '<div class="top"><h2>Bookings</h2></div><div class="panel">' + (rows.length ?
+          '<table><tr><th>When</th><th>Customer</th><th>Status</th></tr>' + rows.map(function (b) {
+            return '<tr class="click" data-conv="' + b.conversation_id + '"><td><b>' + esc(b.label) + '</b></td><td>' + esc(b.customer || "—") +
+              '</td><td><span class="tag booked">' + esc(b.status) + '</span></td></tr>';
+          }).join("") + '</table>' : '<div class="empty">No bookings yet.</div>') + '</div>';
+      });
+    },
+    knowledge: function () {
+      return api("GET", "/v1/admin/documents").then(function (rows) {
+        return '<div class="top"><h2>Knowledge base</h2></div>' +
+          '<div class="panel"><h3>Documents the agent answers from</h3>' + (rows.length ?
+          '<table><tr><th>Title</th><th>Type</th><th>Passages</th><th>Added</th><th></th></tr>' + rows.map(function (d) {
+            return '<tr><td>' + esc(d.title) + '</td><td>' + esc(d.source) + '</td><td>' + d.chunks + '</td><td>' + when(d.created_at) +
+              '</td><td><button class="btn" data-del="' + d.id + '">Delete</button></td></tr>';
+          }).join("") + '</table>' : '<div class="empty">No documents yet.</div>') + '</div>' +
+          '<div class="panel"><h3>Add text</h3><div class="body"><form id="docForm" class="row" style="flex-direction:column;align-items:stretch">' +
+          '<input type="text" id="docTitle" placeholder="Title, for example Holiday offers" required maxlength="200">' +
+          '<textarea id="docText" placeholder="Paste FAQs, prices, policies…" required></textarea>' +
+          '<div class="row"><button class="btn primary" type="submit">Add to knowledge base</button><span id="docMsg" style="color:var(--muted)"></span></div></form></div></div>' +
+          '<div class="panel"><h3>Upload a file</h3><div class="body"><form id="upForm" class="row">' +
+          '<input type="file" id="upFile" accept=".txt,.md,.pdf" required><button class="btn primary" type="submit">Upload</button><span id="upMsg" style="color:var(--muted)"></span>' +
+          '</form><p style="color:var(--muted);margin:10px 0 0">.txt, .md or .pdf, up to 5 MB.</p></div></div>';
+      });
+    },
+    install: function () {
+      var origin = location.origin;
+      return Promise.resolve('<div class="top"><h2>Install on a website</h2></div>' +
+        '<div class="panel"><h3>Web chat widget</h3><div class="body"><p>Paste this before <code>&lt;/body&gt;</code> on any page:</p>' +
+        '<code class="snippet">&lt;script src="' + esc(origin) + '/static/widget.js" data-key="' + esc(me.public_key) + '" async&gt;&lt;/script&gt;</code></div></div>' +
+        '<div class="panel"><h3>WhatsApp (Twilio)</h3><div class="body"><p>In the Twilio WhatsApp sandbox, set "When a message comes in" to:</p>' +
+        '<code class="snippet">' + esc(origin) + '/v1/channels/whatsapp/' + esc(me.slug) + '</code>' +
+        '<p style="color:var(--muted)">Set TWILIO_AUTH_TOKEN and PUBLIC_BASE_URL on the server so incoming requests are signature-checked.</p></div></div>');
+    },
+  };
+
+  function stat(label, value) { return '<div class="stat"><small>' + esc(label) + '</small><b>' + esc(value) + '</b></div>'; }
+
+  function convTable(title, filter, emptyText) {
+    return api("GET", "/v1/admin/conversations" + (filter ? "?status_filter=" + filter : "")).then(function (rows) {
+      return '<div class="top"><h2>' + esc(title) + '</h2></div><div class="panel">' + (rows.length ?
+        '<table><tr><th>Customer</th><th>Channel</th><th>Status</th><th>Last message</th><th>Updated</th></tr>' + rows.map(function (c) {
+          var st = c.status === "handover" ? "needs team" + (c.handover_reason ? " · " + c.handover_reason.replace(/_/g, " ") : "") : c.status;
+          return '<tr class="click" data-conv="' + c.id + '"><td><b>' + esc(c.customer) + '</b></td><td>' + esc(c.channel) + '</td><td><span class="tag ' +
+            esc(c.status) + '">' + esc(st) + '</span></td><td>' + esc(c.last_message) + '</td><td>' + when(c.updated_at) + '</td></tr>';
+        }).join("") + '</table>' : '<div class="empty">' + esc(emptyText) + '</div>') + '</div>';
+    });
+  }
+
+  function render(quiet) {
+    var v = view;
+    VIEWS[v]().then(function (html) {
+      if (v !== view) return;
+      if (quiet && (document.activeElement && ["INPUT", "TEXTAREA"].indexOf(document.activeElement.tagName) >= 0)) return;
+      $("#view").innerHTML = html; bind();
+    }).catch(function (e) { if (!quiet) $("#view").innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+  }
+
+  function bind() {
+    document.querySelectorAll("[data-conv]").forEach(function (r) { r.addEventListener("click", function () { loadConv(r.dataset.conv); }); });
+    document.querySelectorAll("[data-del]").forEach(function (b) {
+      b.addEventListener("click", function () { api("DELETE", "/v1/admin/documents/" + b.dataset.del).then(function () { render(); }); });
+    });
+    var f = $("#docForm");
+    if (f) f.addEventListener("submit", function (e) {
+      e.preventDefault();
+      api("POST", "/v1/admin/documents", { title: $("#docTitle").value, text: $("#docText").value })
+        .then(function () { render(); }).catch(function (err) { $("#docMsg").textContent = err.message; });
+    });
+    var u = $("#upForm");
+    if (u) u.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var fd = new FormData(); fd.append("file", $("#upFile").files[0]);
+      $("#upMsg").textContent = "Uploading…";
+      api("POST", "/v1/admin/documents/upload", fd, true).then(function () { render(); })
+        .catch(function (err) { $("#upMsg").textContent = err.message; });
+    });
+  }
+
+  // ---------- conversation drawer
+  function loadConv(id, quiet) {
+    openConv = id;
+    return api("GET", "/v1/admin/conversations/" + id).then(function (c) {
+      $("#drawer").classList.add("open");
+      $("#dTitle").textContent = (c.lead && c.lead.data && c.lead.data.name) || "Conversation";
+      $("#dMeta").textContent = c.channel + " · " + (c.status === "handover" ? "waiting for team" : c.status);
+      $("#resolveBtn").hidden = c.status !== "handover";
+      var lead = $("#dLead");
+      if (c.lead) {
+        var d = c.lead.data || {};
+        lead.hidden = false;
+        lead.innerHTML = "<b>Lead score " + c.lead.score + "</b> · " + esc(c.lead.status.replace(/_/g, " ")) + "<br>" +
+          Object.keys(d).map(function (k) { return esc(k) + ": " + esc(d[k]); }).join(" · ");
+      } else { lead.hidden = true; }
+      var t = $("#thread"), atBottom = t.scrollTop + t.clientHeight >= t.scrollHeight - 30;
+      t.innerHTML = c.messages.map(function (m) {
+        var who = { user: "Customer", bot: "Agent", agent: "Team", system: "" }[m.role];
+        return '<div class="m ' + m.role + '">' + (who ? "<small>" + who + " · " + when(m.created_at) + "</small>" : "") + esc(m.text) + "</div>";
+      }).join("");
+      if (!quiet || atBottom) t.scrollTop = t.scrollHeight;
+    });
+  }
+  function alertBar(text) {
+    var t = $("#thread"), el = document.createElement("div");
+    el.className = "m system"; el.style.color = "#b45309"; el.textContent = text;
+    setTimeout(function () { t.appendChild(el); t.scrollTop = t.scrollHeight; }, 400);
+  }
+  function closeDrawer() { openConv = null; $("#drawer").classList.remove("open"); }
+  $("#closeDrawer").addEventListener("click", closeDrawer);
+  $("#replyForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var text = $("#replyText").value.trim();
+    if (!text || !openConv) return;
+    $("#replyText").value = "";
+    api("POST", "/v1/admin/conversations/" + openConv + "/reply", { text: text }).then(function (r) {
+      if (r && r.warning) alertBar(r.warning);
+      loadConv(openConv); render(true);
+    });
+  });
+  $("#resolveBtn").addEventListener("click", function () {
+    api("POST", "/v1/admin/conversations/" + openConv + "/resolve").then(function () { loadConv(openConv); render(true); });
+  });
+
+  if (KEY) login(KEY).catch(logout);
+})();
+</script>
+</body>
+</html>

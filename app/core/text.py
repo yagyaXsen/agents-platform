@@ -38,6 +38,8 @@ SYNONYMS = {
 
 def stem(word: str) -> str:
     """Very light suffix stripping, enough to match plurals and -ing forms."""
+    if len(word) > 6 and word.endswith("ings"):  # fillings -> filling -> fill
+        word = word[:-1]
     if len(word) > 5 and word.endswith("ing"):
         return word[:-3]
     if len(word) > 4 and word.endswith("ies"):
@@ -59,6 +61,20 @@ def tokens(text: str) -> list[str]:
     return out
 
 
+# "Dr. Meera" is one sentence, not two
+_ABBREV = re.compile(r"(?:^|\s)(?:dr|mr|mrs|ms|prof|st|no|vs|approx|e\.g|i\.e)\.$", re.I)
+
+
+def _split_line(line: str) -> list[str]:
+    parts: list[str] = []
+    for p in re.split(r"(?<=[.!?])\s+", line):
+        if parts and _ABBREV.search(parts[-1]):
+            parts[-1] += " " + p
+        else:
+            parts.append(p)
+    return [p.strip(" -*•\t") for p in parts if p.strip(" -*•\t")]
+
+
 def sentences(text: str) -> list[str]:
     out: list[str] = []
     for line in text.splitlines():
@@ -68,7 +84,7 @@ def sentences(text: str) -> list[str]:
         if line.startswith("#"):  # markdown heading: keep as its own short sentence
             out.append(line.lstrip("#").strip())
             continue
-        out.extend(p.strip(" -*•\t") for p in re.split(r"(?<=[.!?])\s+", line) if p.strip(" -*•\t"))
+        out.extend(_split_line(line))
     return out
 
 

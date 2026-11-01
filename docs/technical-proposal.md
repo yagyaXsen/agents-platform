@@ -50,6 +50,10 @@ multi-client platform.
 | Knowledge base management | Admin → Knowledge base: add text or upload a PDF, then ask about it |
 | Multi-tenant isolation | Clinic keys can't read or post to real-estate data (covered by tests) |
 | Analytics | Admin → Overview: conversations, lead and booking rates, escalation rate, intents |
+| Onboarding a new business | `/platform`: name, template, hours and first knowledge; it gets its own keys and can chat at once |
+| Booking changes | Admin → Bookings → Cancel: the slot frees up and the customer is told in their chat |
+| Privacy and audit | Admin → Privacy: erase a customer by phone or email, delete old chats; Admin → Audit log |
+| Abuse protection | Rate limits, key-guessing lockout, widget restricted to the business's own websites |
 
 ## 5. Architecture
 
@@ -74,8 +78,15 @@ agent logic is separate from web and data code, and retrieval sits behind a stab
 - Emails and phone numbers are redacted from logs and the audit trail. WhatsApp conversations
   are looked up by a hashed number and displayed masked.
 - Twilio webhook signatures are verified. Per-tenant LLM token quotas cap cost.
-- Roadmap: per-tenant encryption keys, RBAC and SSO, consent capture, configurable retention
-  jobs, audit export, option for private model endpoints (GDPR; HIPAA for healthcare tenants).
+- Rate limits per conversation, per visitor for new chats, per admin and per WhatsApp sender; an IP that keeps
+  guessing keys is locked out. A business can restrict its widget key to its own websites.
+- A platform key (separate from every business key) creates businesses and resets admin keys.
+- Admins can delete a conversation, erase all data linked to a customer's phone or email, and
+  delete conversations older than a chosen number of days. Every action lands in an audit log
+  that holds no personal details.
+- Roadmap: per-tenant encryption keys, RBAC and SSO, consent capture, scheduled retention jobs,
+  rate limits shared across instances (Redis), audit export, option for private model endpoints
+  (GDPR; HIPAA for healthcare tenants).
 
 ## 7. Scalability path
 
@@ -88,7 +99,7 @@ answers; run on Kubernetes with autoscaling per worker type.
 
 | Phase | RFP scope | Already in the PoC | Remaining |
 |---|---|---|---|
-| 1 · MVP | templated agents, web chat, basic WhatsApp, CRM webhooks, agent console, managed LLM, rule-based dialogue | web chat, WhatsApp, agent console, rule-based dialogue, LLM, per-tenant templates | CRM webhooks, template library per industry |
+| 1 · MVP | templated agents, web chat, basic WhatsApp, CRM webhooks, agent console, managed LLM, rule-based dialogue | web chat, WhatsApp, agent console, rule-based dialogue, LLM, per-tenant templates, business onboarding | CRM webhooks, template library per industry |
 | 2 · Scale and integrations | more channels, vector RAG, workflow engine, RBAC, isolation, metering | tenant isolation, RAG with sources, token metering | Messenger/SMS, pgvector, workflow engine, RBAC |
 | 3 · Agency features | white-label, sandboxing, reseller dashboards, SSO, SLAs | — | all |
 
@@ -98,7 +109,15 @@ We'd track the RFP's KPIs from the event log already in place: first response ti
 resolution rate, lead conversion, escalation rate, booking rate and LLM usage per tenant (most
 are already on the dashboard). Tests: unit tests for the dialogue manager, retrieval, slots, PII
 and WhatsApp signing; end-to-end API tests for booking, double-booking protection, handover,
-tenant isolation, documents and the WhatsApp webhook.
+tenant isolation, documents, the WhatsApp webhook, rate limits, onboarding, booking cancellation
+and data erasure.
+
+Answer quality is measured, not assumed: a set of 46 customer-style questions written for the two
+demo businesses (40 answerable, 6 out of scope) runs as a test. Offline, without an LLM, all 40
+answerable questions get a correct answer and all 6 out-of-scope questions are refused. This is our
+own small test set, not an independent benchmark. Two harder phrasings, where the customer's key
+word never appears in the document, are tracked openly as known gaps; the agent says it isn't sure
+instead of guessing. Dense embeddings (roadmap) are the planned fix.
 
 ## 10. Risks and how the design handles them
 
@@ -108,6 +127,7 @@ tenant isolation, documents and the WhatsApp webhook.
 | Wrong action (bad booking) | bookings come from the rule-based flow, not the LLM; unique slot constraint |
 | PII leakage | redaction in logs and events, hashed lookups, masked display |
 | Cross-tenant data access | tenant resolved from key on every request; isolation tests |
+| Abuse and key guessing | rate limits, lockout after repeated wrong keys, widget website allowlist |
 | LLM cost or outage | per-tenant quotas, extractive fallback with no LLM |
 
 ## 11. About us

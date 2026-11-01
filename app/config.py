@@ -34,6 +34,12 @@ class Settings:
     public_base_url: str
     cors_origins: tuple[str, ...]
     log_level: str
+    rate_limit_public_per_min: int
+    rate_limit_admin_per_min: int
+    rate_limit_auth_fails_per_min: int
+    trusted_proxy_hops: int
+    platform_admin_key: str
+    max_tenants: int
 
 
 def load() -> Settings:
@@ -54,6 +60,12 @@ def load() -> Settings:
         public_base_url=os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/"),
         cors_origins=tuple(o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",") if o.strip()),
         log_level=os.environ.get("LOG_LEVEL", "INFO"),
+        rate_limit_public_per_min=int(os.environ.get("RATE_LIMIT_PUBLIC_PER_MIN", "30")),
+        rate_limit_admin_per_min=int(os.environ.get("RATE_LIMIT_ADMIN_PER_MIN", "300")),
+        rate_limit_auth_fails_per_min=int(os.environ.get("RATE_LIMIT_AUTH_FAILS_PER_MIN", "10")),
+        trusted_proxy_hops=int(os.environ.get("TRUSTED_PROXY_HOPS", "0")),
+        platform_admin_key=os.environ.get("PLATFORM_ADMIN_KEY", "").strip(),
+        max_tenants=int(os.environ.get("MAX_TENANTS", "100")),
     )
 
 

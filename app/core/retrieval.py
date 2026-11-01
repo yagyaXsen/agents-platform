@@ -29,6 +29,7 @@ class Passage:
 class Hit:
     passage: Passage
     score: float
+    coverage: float = 0.0  # IDF-weighted share of the query's words this passage contains
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,8 @@ def retrieve(query: str, passages: list[Passage], k: int = 3) -> Retrieval:
 
     qv = vec(q_terms)
     q_norm = math.sqrt(sum(v * v for v in qv.values())) or 1.0
+    unique_q = set(q_terms)
+    total = sum(_idf(df, n, t) for t in unique_q) or 1.0
 
     scored: list[Hit] = []
     for p, d in zip(passages, docs):
@@ -65,33 +68,55 @@ def retrieve(query: str, passages: list[Passage], k: int = 3) -> Retrieval:
         d_norm = math.sqrt(sum(v * v for v in dv.values())) or 1.0
         dot = sum(w * dv.get(t, 0.0) for t, w in qv.items())
         if dot > 0:
-            scored.append(Hit(p, dot / (q_norm * d_norm)))
+            covered = sum(_idf(df, n, t) for t in unique_q if t in dv)
+            scored.append(Hit(p, dot / (q_norm * d_norm), round(covered / total, 6)))
 
-    scored.sort(key=lambda h: h.score, reverse=True)
+    # The passage that covers most of the question wins; similarity breaks ties
+    scored.sort(key=lambda h: (h.coverage, h.score), reverse=True)
     top = scored[:k]
     if not top:
         return Retrieval([], 0.0)
-
     # Confidence: IDF-weighted coverage of query terms by the best passage
-    best_terms = set(tokens(f"{top[0].passage.title} {top[0].passage.text}"))
-    unique_q = set(q_terms)
-    total = sum(_idf(df, n, t) for t in unique_q)
-    covered = sum(_idf(df, n, t) for t in unique_q if t in best_terms)
-    return Retrieval(top, covered / total if total else 0.0)
+    return Retrieval(top, top[0].coverage)
+
+
+def extract_answer(query: str, found: Retrieval) -> tuple[str, tuple[str, ...]]:
+    """Extractive answer and its source titles. Passages that cover the question
+    as well as the best one are all searched for the best sentences."""
+    if not found.hits:
+        return "", ()
+    tied = [h for h in found.hits if h.coverage >= found.hits[0].coverage]
+    text = "\n".join(h.passage.text for h in tied)
+    return best_sentences(query, text), tuple(dict.fromkeys(h.passage.title for h in tied))
 
 
 def best_sentences(query: str, text: str, limit: int = 2) -> str:
-    """Pick the sentences of a passage that best match the query (extractive answer)."""
+    """Pick the sentences of a passage that best match the query (extractive answer).
+
+    A sentence also counts the words of the heading it sits under, so
+    "Which areas do you cover?" finds the sentence below "Areas we cover".
+    """
     q = set(tokens(query))
-    sents = [s for s in sentences(text) if not is_heading(s)] or sentences(text)
+    sents: list[str] = []
+    context: list[set[str]] = []  # heading words per sentence
+    heading: set[str] = set()
+    for s in sentences(text):
+        if is_heading(s):
+            heading = set(tokens(s))
+        else:
+            sents.append(s)
+            context.append(heading)
     if not sents:
         return text.strip()
-    ranked = sorted(
-        range(len(sents)),
-        key=lambda i: (len(q & set(tokens(sents[i]))), -i),
-        reverse=True,
-    )
-    chosen = sorted(ranked[:limit])
-    picked = [sents[i] for i in chosen if q & set(tokens(sents[i]))] or [sents[ranked[0]]]
+
+    def overlap(i: int) -> tuple[int, int]:
+        own = q & set(tokens(sents[i]))
+        return len(own | (q & context[i])), len(own)
+
+    ranked = sorted(range(len(sents)), key=lambda i: (*overlap(i), -i), reverse=True)
+    best = overlap(ranked[0])[0]
+    # keep the runner-up only if it is nearly as relevant as the best sentence
+    chosen = sorted(i for i in ranked[:limit] if overlap(i)[0] and overlap(i)[0] >= best - 1)
+    picked = [sents[i] for i in chosen] or [sents[ranked[0]]]
     out = " ".join(picked)
     return out if out.endswith((".", "!", "?")) else out + "."

@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Platform · AgentGrid</title>
+<style>
+  :root { --ink:#0f172a; --text:#334155; --muted:#64748b; --line:#e2e8f0; --bg:#f8fafc; --ok:#047857; --ok-bg:#d1fae5; --warn:#b45309; --warn-bg:#fef3c7; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--text); background:var(--bg); font-size:14px; }
+  button, input, textarea, select { font:inherit; }
+  .btn { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:8px; padding:8px 12px; cursor:pointer; font-weight:600; text-decoration:none; display:inline-block; }
+  .btn.primary { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .btn:disabled { opacity:.6; cursor:wait; }
+  input[type=text], input[type=password], input[type=number], textarea, select { width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:9px 11px; background:#fff; color:var(--ink); }
+  textarea { resize:vertical; min-height:140px; }
+  label { display:flex; flex-direction:column; gap:5px; font-weight:600; color:var(--ink); font-size:13px; }
+  label small { font-weight:400; color:var(--muted); }
+  h1, h2, h3 { color:var(--ink); margin:0; }
+  .err { color:#b91c1c; font-size:13px; min-height:18px; }
+  #login { max-width:420px; margin:12vh auto; background:#fff; border:1px solid var(--line); border-radius:16px; padding:28px; }
+  #login h1 { font-size:22px; margin-bottom:6px; }
+  #login p { color:var(--muted); margin:0 0 18px; }
+  #login form { display:flex; flex-direction:column; gap:10px; }
+  #app { display:none; max-width:1100px; margin:0 auto; padding:28px 20px 60px; }
+  .top { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; gap:12px; flex-wrap:wrap; }
+  .top h1 { font-size:22px; }
+  .top p { margin:4px 0 0; color:var(--muted); }
+  .panel { background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; margin-bottom:20px; }
+  .panel h3 { font-size:14px; padding:12px 16px; border-bottom:1px solid var(--line); }
+  .panel .body { padding:16px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
+  .full { grid-column:1/-1; }
+  .check { flex-direction:row; align-items:center; gap:8px; font-weight:500; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:10px 16px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  th { background:#f8fafc; color:var(--muted); font-weight:600; font-size:12.5px; }
+  .tag { display:inline-block; border-radius:6px; padding:1px 7px; font-size:12px; font-weight:600; background:#f1f5f9; }
+  .empty { color:var(--muted); padding:22px 16px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; }
+  code.snippet { display:block; background:#0f172a; color:#e2e8f0; padding:10px 12px; border-radius:8px; white-space:pre-wrap; word-break:break-all; }
+  #created { display:none; border-color:#86efac; }
+  #created h3 { background:var(--ok-bg); color:var(--ok); }
+  .keyrow { display:grid; grid-template-columns:120px 1fr auto; gap:10px; align-items:center; margin-bottom:10px; }
+  .warn { background:var(--warn-bg); color:var(--warn); border-radius:8px; padding:9px 12px; margin-bottom:14px; font-weight:600; }
+  .table-wrap { overflow-x:auto; }
+  @media (max-width:640px) { .keyrow { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<section id="login">
+  <h1>Platform console</h1>
+  <p>For the platform operator: create businesses and manage their keys. Each business then signs in to its own admin console.</p>
+  <form id="loginForm">
+    <input type="password" id="key" placeholder="Platform key" autocomplete="off" aria-label="Platform key">
+    <div class="err" id="loginErr"></div>
+    <button class="btn primary" type="submit">Sign in</button>
+  </form>
+</section>
+
+<div id="app">
+  <div class="top">
+    <div><h1>Businesses on this platform</h1><p>Every business has its own documents, conversations, leads, bookings and keys.</p></div>
+    <div class="row"><a class="btn" href="/admin">Business admin console</a><button class="btn" id="logout">Sign out</button></div>
+  </div>
+
+  <div class="panel" id="created">
+    <h3>Business created</h3>
+    <div class="body">
+      <div class="warn">Save the admin key now. It is stored only as a hash and can't be shown again.</div>
+      <div id="createdBody"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Add a business</h3>
+    <div class="body">
+      <form id="createForm" class="grid">
+        <label>Business name<input type="text" id="name" required maxlength="200" placeholder="Green Leaf Salon"></label>
+        <label>Slug <small>Used in URLs. Leave empty to make one from the name.</small><input type="text" id="slug" maxlength="64" placeholder="green-leaf-salon"></label>
+        <label>Template <small>Sets the lead questions and booking offer.</small><select id="template"></select></label>
+        <label>Greeting <small>Optional. First message in the chat.</small><input type="text" id="greeting" maxlength="500"></label>
+        <label>Opens at (hour)<input type="number" id="open" min="0" max="23" value="10"></label>
+        <label>Closes at (hour)<input type="number" id="close" min="1" max="24" value="18"></label>
+        <label>Time zone<input type="text" id="tz" value="Asia/Kolkata" maxlength="64"></label>
+        <label class="check"><input type="checkbox" id="booking" checked> Let customers book appointments</label>
+        <label class="full">Knowledge <small>Optional. Paste FAQs, prices and policies; more can be added later in the admin console. Use "## Heading" lines to separate topics.</small>
+          <textarea id="knowledge" maxlength="200000" placeholder="## Prices&#10;A haircut costs Rs 700.&#10;&#10;## Timings&#10;Open every day, 11:00 to 20:00."></textarea></label>
+        <div class="full row"><button class="btn primary" type="submit" id="createBtn">Create business</button><span class="err" id="createErr"></span></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>All businesses</h3>
+    <div class="table-wrap" id="list"><div class="empty">Loading…</div></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var KEY = sessionStorage.getItem("ag_platform") || "";
+  var $ = function (s) { return document.querySelector(s); };
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function when(iso) {
+    if (!iso) return "";
+    var d = new Date(iso.endsWith("Z") ? iso : iso + "Z");
+    return d.toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  }
+  function api(method, path, body) {
+    var headers = { Authorization: "Bearer " + KEY };
+    if (body) headers["Content-Type"] = "application/json";
+    return fetch(path, { method: method, headers: headers, body: body ? JSON.stringify(body) : undefined }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (d) {
+        if (r.status === 401) { logout(); throw new Error("Signed out"); }
+        if (!r.ok) throw new Error(typeof d.detail === "string" ? d.detail : "Check the form and try again.");
+        return d;
+      });
+    });
+  }
+
+  function login(k) {
+    KEY = k.trim();
+    return api("GET", "/v1/platform/templates").then(function (templates) {
+      sessionStorage.setItem("ag_platform", KEY);
+      $("#login").style.display = "none"; $("#app").style.display = "block";
+      $("#template").innerHTML = templates.map(function (t) {
+        return '<option value="' + esc(t.id) + '">' + esc(t.label) + '</option>';
+      }).join("");
+      loadList();
+    });
+  }
+  function logout() {
+    sessionStorage.removeItem("ag_platform"); KEY = "";
+    $("#app").style.display = "none"; $("#login").style.display = "block";
+  }
+  $("#loginForm").addEventListener("submit", function (e) {
+    e.preventDefault(); $("#loginErr").textContent = "";
+    login($("#key").value).catch(function (err) {
+      $("#loginErr").textContent = err.message === "Signed out" ? "That key didn't work." : err.message;
+    });
+  });
+  $("#logout").addEventListener("click", logout);
+
+  function loadList() {
+    api("GET", "/v1/platform/tenants").then(function (rows) {
+      $("#list").innerHTML = rows.length ?
+        '<table><tr><th>Business</th><th>Template</th><th>Conversations</th><th>LLM tokens</th><th>Created</th><th></th></tr>' +
+        rows.map(function (t) {
+          return '<tr><td><b>' + esc(t.name) + '</b><br><code>' + esc(t.slug) + '</code></td><td><span class="tag">' + esc(t.template || "demo") +
+            '</span></td><td>' + t.conversations + '</td><td>' + Number(t.llm_tokens_used).toLocaleString() + ' / ' + Number(t.llm_token_quota).toLocaleString() +
+            '</td><td>' + when(t.created_at) + '</td><td class="row"><a class="btn" target="_blank" rel="noopener" href="/demo?key=' + encodeURIComponent(t.public_key) +
+            '">Try chat</a><button class="btn" data-rotate="' + esc(t.id) + '" data-name="' + esc(t.name) + '">Reset admin key</button></td></tr>';
+        }).join("") + '</table>' : '<div class="empty">No businesses yet.</div>';
+      document.querySelectorAll("[data-rotate]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          if (!confirm("Reset the admin key for " + b.dataset.name + "? The current key stops working immediately.")) return;
+          api("POST", "/v1/platform/tenants/" + b.dataset.rotate + "/rotate-admin-key").then(function (r) {
+            showKeys({ name: b.dataset.name, admin_key: r.admin_key });
+          }).catch(function (err) { alert(err.message); });
+        });
+      });
+    }).catch(function (err) { $("#list").innerHTML = '<div class="empty">' + esc(err.message) + '</div>'; });
+  }
+
+  function keyRow(label, value) {
+    return '<div class="keyrow"><b>' + esc(label) + '</b><code class="snippet">' + esc(value) +
+      '</code><button class="btn" type="button" data-copy="' + esc(value) + '">Copy</button></div>';
+  }
+  function showKeys(t) {
+    var origin = location.origin, html = '<p style="margin-top:0"><b>' + esc(t.name) + '</b></p>' + keyRow("Admin key", t.admin_key);
+    if (t.public_key) {
+      html += keyRow("Widget key", t.public_key) +
+        keyRow("Embed code", '<script src="' + origin + '/static/widget.js" data-key="' + t.public_key + '" async><\/script>') +
+        '<div class="row"><a class="btn primary" target="_blank" rel="noopener" href="/demo?key=' + encodeURIComponent(t.public_key) + '">Try the chat</a>' +
+        '<a class="btn" target="_blank" rel="noopener" href="/admin">Open admin console</a></div>';
+    }
+    $("#createdBody").innerHTML = html;
+    $("#created").style.display = "block";
+    $("#created").scrollIntoView({ behavior: "smooth", block: "start" });
+    document.querySelectorAll("[data-copy]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        navigator.clipboard.writeText(b.dataset.copy).then(function () { b.textContent = "Copied"; });
+      });
+    });
+  }
+
+  $("#createForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    $("#createErr").textContent = ""; $("#createBtn").disabled = true;
+    var body = {
+      name: $("#name").value, slug: $("#slug").value.trim() || null, template: $("#template").value,
+      greeting: $("#greeting").value.trim() || null, booking_enabled: $("#booking").checked,
+      hours: { open_hour: Number($("#open").value), close_hour: Number($("#close").value), timezone: $("#tz").value.trim() || null },
+      knowledge: $("#knowledge").value.trim() || null
+    };
+    api("POST", "/v1/platform/tenants", body).then(function (t) {
+      $("#createForm").reset(); showKeys(t); loadList();
+    }).catch(function (err) { $("#createErr").textContent = err.message; })
+      .finally(function () { $("#createBtn").disabled = false; });
+  });
+
+  if (KEY) login(KEY).catch(logout);
+})();
+</script>
+</body>
+</html>

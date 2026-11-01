@@ -13,10 +13,10 @@ flowchart LR
     D[Dialogue manager<br/>rules: qualify · book · hand over]
     R[Retrieval<br/>TF-IDF + confidence]
     L[LLM client<br/>grounded answers, quota]
-    A[Admin API]
+    A[Admin + platform API<br/>rate limits · key checks]
   end
   DB[(Postgres / SQLite<br/>tenant_id on every row)]
-  C[Admin console<br/>inbox · leads · bookings · docs · analytics]
+  C[Admin console<br/>inbox · leads · bookings · docs · analytics · audit · privacy]
 
   W --> P
   WA --> P
@@ -88,15 +88,15 @@ format (→ Kafka topics), `app/core` has no web or database code (→ conversat
 
 | RFP requirement | PoC | Where / next step |
 |---|---|---|
-| Multi-tenant control plane | ✅ tenants, isolation, hashed keys, per-tenant config | RBAC, SSO, billing: phase 3 |
+| Multi-tenant control plane | ✅ tenants, onboarding API and console, isolation, hashed keys, key reset, per-tenant config | RBAC, SSO, billing: phase 3 |
 | Channel adapters | ✅ web SDK, WhatsApp (Twilio) in and out | Messenger, SMS, WhatsApp Business API direct |
 | Message bus / event stream | ◐ unified pipeline + event table | Kafka between adapters and workers |
 | NLU + dialogue manager + response generator | ✅ rule-based state machine, LLM for answers | ML intent model when data exists |
 | Knowledge layer (RAG) | ✅ chunking, retrieval with confidence, sources | pgvector embeddings, hybrid search |
 | Workflow engine | ◐ booking, lead save, handover actions | general workflows with retries and timers |
 | Integrations (CRM, calendar, payments) | ◐ built-in booking calendar | HubSpot/Salesforce, Google Calendar, payment links |
-| Human-agent UI | ✅ inbox, transcript, lead context, reply, hand back | suggested replies, assignment, SLAs |
+| Human-agent UI | ✅ inbox, transcript, lead context, reply, hand back, cancel bookings | suggested replies, assignment, SLAs |
 | Observability and analytics | ✅ dashboard: conversations, leads, bookings, escalations, intents | Prometheus/Grafana, tracing |
-| Security and data controls | ✅ isolation, hashed keys, PII redaction in logs, masked numbers, signature checks, quotas | encryption keys per tenant, retention jobs, consent capture |
+| Security and data controls | ✅ isolation, hashed keys, rate limits, key-guessing lockout, widget website allowlist, PII redaction in logs, masked numbers, signature checks, quotas, audit log, customer data erasure, retention purge | encryption keys per tenant, scheduled retention, consent capture, shared rate limits (Redis) |
 
 ✅ built · ◐ partly built

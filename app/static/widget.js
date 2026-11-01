@@ -123,7 +123,11 @@
       headers: { "Content-Type": "application/json", "X-Agent-Key": KEY },
       body: body ? JSON.stringify(body) : undefined,
     }).then(function (r) {
-      if (!r.ok) throw new Error("HTTP " + r.status);
+      if (!r.ok) {
+        var err = new Error("HTTP " + r.status);
+        err.status = r.status; err.retryAfter = Number(r.headers.get("Retry-After")) || 0;
+        throw err;
+      }
       return r.json();
     });
   }
@@ -188,7 +192,12 @@
     log.scrollTop = log.scrollHeight;
     api("POST", "/v1/conversations/" + convId + "/messages?after_id=" + lastId, { text: text })
       .then(function (d) { tmp.remove(); setStatus(d.status); render(d.messages); })
-      .catch(function () {
+      .catch(function (err) {
+        if (err && err.status === 429) {
+          tmp.remove(); input.value = text;  // keep the text so they can resend it
+          note("You're sending messages quickly. Please wait " + (err.retryAfter || 30) + " seconds and send again.");
+          return;
+        }
         tmp.style.opacity = "1";
         note("Message not sent. Check your connection and try again.");
       })

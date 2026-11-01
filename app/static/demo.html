@@ -67,8 +67,25 @@
       prompts: "\"What is your brokerage fee?\" · \"Which areas do you cover?\" · \"What documents do I need to rent?\" · \"Book a site visit\""
     }
   };
-  var slug = new URLSearchParams(location.search).get("tenant") || "smile-dental";
+  var params = new URLSearchParams(location.search);
+  var slug = params.get("tenant") || "smile-dental";
   var site = SITES[slug] || SITES["smile-dental"];
+  var customKey = params.get("key");
+  if (customKey) {  // any business created on the platform: /demo?key=pk_…
+    slug = null;
+    site = {
+      key: customKey, accent: "#0f172a", name: "Your business", tag: "Demo website",
+      headline: "Ask our assistant anything.", sub: "It answers from this business's own documents, and can book a visit or pass you to the team.",
+      cards: [["Answers with sources", "From the documents added in the admin console."], ["Booking", "Real free slots in business hours."], ["A person when needed", "Type \"human\" at any time."]],
+      prompts: "Ask about prices, timings or services · \"I want to book\" · \"talk to a human\""
+    };
+    fetch("/v1/agent", { headers: { "X-Agent-Key": customKey } }).then(function (r) { return r.ok ? r.json() : null; }).then(function (a) {
+      if (!a) { document.getElementById("headline").textContent = "This widget key isn't valid."; return; }
+      document.getElementById("name").textContent = a.name;
+      document.title = a.name + " · AgentGrid demo";
+      if (a.theme && a.theme.accent) document.documentElement.style.setProperty("--accent", a.theme.accent);
+    });
+  }
   document.documentElement.style.setProperty("--accent", site.accent);
   document.title = site.name + " · AgentGrid demo";
   document.getElementById("name").textContent = site.name;
@@ -84,7 +101,7 @@
   var s = document.createElement("script");
   s.src = "/static/widget.js";
   s.dataset.key = site.key;
-  s.dataset.accent = site.accent;
+  if (!customKey) s.dataset.accent = site.accent;
   document.body.appendChild(s);
   document.getElementById("open").addEventListener("click", function () {
     var w = document.getElementById("agentgrid-widget");

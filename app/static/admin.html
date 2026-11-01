@@ -12,6 +12,9 @@
   .btn { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:8px; padding:8px 12px; cursor:pointer; font-weight:600; }
   .btn.primary { background:var(--ink); color:#fff; border-color:var(--ink); }
   .btn:disabled { opacity:.6; cursor:wait; }
+  .btn.danger { color:#b91c1c; }
+  .tag.cancelled { background:#fee2e2; color:#b91c1c; }
+  .note { color:var(--muted); margin:0 0 12px; line-height:1.5; }
   input[type=text], input[type=password], textarea { width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:9px 11px; background:#fff; color:var(--ink); }
   textarea { resize:vertical; min-height:120px; }
   h1, h2, h3 { color:var(--ink); margin:0; }
@@ -99,6 +102,8 @@
     <a data-view="bookings">Bookings</a>
     <a data-view="knowledge">Knowledge base</a>
     <a data-view="install">Install on a website</a>
+    <a data-view="audit">Audit log</a>
+    <a data-view="privacy">Privacy and data</a>
     <div class="spacer"></div>
     <a id="logout">Sign out</a>
   </aside>
@@ -110,6 +115,7 @@
     <div><b id="dTitle">Conversation</b><div id="dMeta" style="color:var(--muted);font-size:12.5px"></div></div>
     <div class="row">
       <button class="btn" id="resolveBtn">Hand back to bot</button>
+      <button class="btn danger" id="deleteConvBtn" title="Delete this conversation and its lead and bookings">Delete</button>
       <button class="btn" id="closeDrawer" aria-label="Close">✕</button>
     </div>
   </header>
@@ -232,9 +238,11 @@
     bookings: function () {
       return api("GET", "/v1/admin/bookings").then(function (rows) {
         return '<div class="top"><h2>Bookings</h2></div><div class="panel">' + (rows.length ?
-          '<table><tr><th>When</th><th>Customer</th><th>Status</th></tr>' + rows.map(function (b) {
+          '<table><tr><th>When</th><th>Customer</th><th>Status</th><th></th></tr>' + rows.map(function (b) {
+            var live = b.status === "confirmed";
             return '<tr class="click" data-conv="' + b.conversation_id + '"><td><b>' + esc(b.label) + '</b></td><td>' + esc(b.customer || "—") +
-              '</td><td><span class="tag booked">' + esc(b.status) + '</span></td></tr>';
+              '</td><td><span class="tag ' + (live ? "booked" : "cancelled") + '">' + esc(b.status) + '</span></td><td>' +
+              (live ? '<button class="btn danger" data-cancel="' + esc(b.id) + '" data-label="' + esc(b.label) + '">Cancel</button>' : "") + '</td></tr>';
           }).join("") + '</table>' : '<div class="empty">No bookings yet.</div>') + '</div>';
       });
     },
@@ -262,7 +270,37 @@
         '<code class="snippet">&lt;script src="' + esc(origin) + '/static/widget.js" data-key="' + esc(me.public_key) + '" async&gt;&lt;/script&gt;</code></div></div>' +
         '<div class="panel"><h3>WhatsApp (Twilio)</h3><div class="body"><p>In the Twilio WhatsApp sandbox, set "When a message comes in" to:</p>' +
         '<code class="snippet">' + esc(origin) + '/v1/channels/whatsapp/' + esc(me.slug) + '</code>' +
-        '<p style="color:var(--muted)">Set TWILIO_AUTH_TOKEN and PUBLIC_BASE_URL on the server so incoming requests are signature-checked.</p></div></div>');
+        '<p style="color:var(--muted)">Set TWILIO_AUTH_TOKEN and PUBLIC_BASE_URL on the server so incoming requests are signature-checked.</p></div></div>' +
+        '<div class="panel"><h3>Websites allowed to use this widget</h3><div class="body">' +
+        '<p class="note">One per line, for example <code>https://www.example.com</code> or <code>https://*.example.com</code> for all subdomains. ' +
+        'Leave empty to allow any website. Other websites that copy your widget code will be refused.</p>' +
+        '<form id="originsForm" class="row" style="flex-direction:column;align-items:stretch">' +
+        '<textarea id="origins" style="min-height:90px" placeholder="https://www.example.com">' + esc(((me.settings || {}).allowed_origins || []).join("\n")) + '</textarea>' +
+        '<div class="row"><button class="btn primary" type="submit">Save</button><span id="originsMsg" style="color:var(--muted)"></span></div></form></div></div>');
+    },
+    audit: function () {
+      return api("GET", "/v1/admin/events?limit=200").then(function (rows) {
+        return '<div class="top"><h2>Audit log</h2></div><p class="note">Everything the agent and the team did, newest first. Phone numbers and emails are removed before anything is written here.</p>' +
+          '<div class="panel">' + (rows.length ?
+          '<table><tr><th>When</th><th>Event</th><th>Details</th><th>Conversation</th></tr>' + rows.map(function (e) {
+            var d = e.data || {}, details = Object.keys(d).map(function (k) { return esc(k) + ": " + esc(d[k]); }).join(" · ");
+            return '<tr><td>' + when(e.created_at) + '</td><td><span class="tag">' + esc(e.type.replace(/_/g, " ")) + '</span></td><td>' +
+              (details || "—") + '</td><td>' + (e.conversation_id ? '<code>' + esc(e.conversation_id.slice(0, 8)) + '</code>' : "—") + '</td></tr>';
+          }).join("") + '</table>' : '<div class="empty">Nothing yet.</div>') + '</div>';
+      });
+    },
+    privacy: function () {
+      return Promise.resolve('<div class="top"><h2>Privacy and data</h2></div>' +
+        '<div class="panel"><h3>Delete a customer\'s data</h3><div class="body">' +
+        '<p class="note">When a customer asks to be forgotten: deletes every conversation linked to their phone number or email, ' +
+        'on web chat and WhatsApp, with the messages, lead details and bookings. This can\'t be undone.</p>' +
+        '<form id="eraseForm" class="row"><input type="text" id="erasePhone" placeholder="Phone number" style="max-width:220px">' +
+        '<input type="text" id="eraseEmail" placeholder="Email" style="max-width:260px">' +
+        '<button class="btn danger" type="submit">Delete their data</button><span id="eraseMsg" style="color:var(--muted)"></span></form></div></div>' +
+        '<div class="panel"><h3>Retention</h3><div class="body">' +
+        '<p class="note">Delete conversations with no activity for a number of days. The audit log keeps a record that they were deleted, with no personal details.</p>' +
+        '<form id="purgeForm" class="row"><span>Older than</span><input type="text" id="purgeDays" value="90" inputmode="numeric" style="max-width:80px"><span>days</span>' +
+        '<button class="btn danger" type="submit">Delete old conversations</button><span id="purgeMsg" style="color:var(--muted)"></span></form></div></div>');
     },
   };
 
@@ -306,6 +344,47 @@
       $("#upMsg").textContent = "Uploading…";
       api("POST", "/v1/admin/documents/upload", fd, true).then(function () { render(); })
         .catch(function (err) { $("#upMsg").textContent = err.message; });
+    });
+    document.querySelectorAll("[data-cancel]").forEach(function (b) {
+      b.addEventListener("click", function (e) {
+        e.stopPropagation();  // the row itself opens the conversation
+        if (!confirm("Cancel the booking for " + b.dataset.label + "? The customer is told in their chat and the slot becomes free.")) return;
+        api("POST", "/v1/admin/bookings/" + b.dataset.cancel + "/cancel").then(function (r) {
+          if (r.warning) alert(r.warning);
+          render();
+        }).catch(function (err) { alert(err.message); });
+      });
+    });
+    var o = $("#originsForm");
+    if (o) o.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var list = $("#origins").value.split(/[\n,]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+      api("PUT", "/v1/admin/settings/allowed-origins", { origins: list }).then(function (r) {
+        me.settings = Object.assign({}, me.settings, { allowed_origins: r.allowed_origins });
+        $("#origins").value = r.allowed_origins.join("\n");
+        $("#originsMsg").textContent = r.allowed_origins.length ? "Saved. Only these websites can use the widget." : "Saved. Any website can use the widget.";
+      }).catch(function (err) { $("#originsMsg").textContent = err.message; });
+    });
+    var er = $("#eraseForm");
+    if (er) er.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var phone = $("#erasePhone").value.trim(), email = $("#eraseEmail").value.trim();
+      if (!phone && !email) { $("#eraseMsg").textContent = "Enter a phone number or email."; return; }
+      if (!confirm("Delete every conversation, lead and booking for " + [phone, email].filter(Boolean).join(" / ") + "? This can't be undone.")) return;
+      api("POST", "/v1/admin/privacy/erase", { phone: phone || null, email: email || null }).then(function (r) {
+        $("#erasePhone").value = ""; $("#eraseEmail").value = "";
+        $("#eraseMsg").textContent = r.deleted ? "Deleted " + r.deleted + " conversation" + (r.deleted === 1 ? "" : "s") + "." : "Nothing found for those details.";
+      }).catch(function (err) { $("#eraseMsg").textContent = err.message; });
+    });
+    var pf = $("#purgeForm");
+    if (pf) pf.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var days = parseInt($("#purgeDays").value, 10);
+      if (!(days >= 1)) { $("#purgeMsg").textContent = "Enter a number of days (1 or more)."; return; }
+      if (!confirm("Delete all conversations with no activity in the last " + days + " days? This can't be undone.")) return;
+      api("POST", "/v1/admin/privacy/purge?older_than_days=" + days).then(function (r) {
+        $("#purgeMsg").textContent = "Deleted " + r.deleted + " conversation" + (r.deleted === 1 ? "" : "s") + ".";
+      }).catch(function (err) { $("#purgeMsg").textContent = err.message; });
     });
   }
 
@@ -351,6 +430,11 @@
   });
   $("#resolveBtn").addEventListener("click", function () {
     api("POST", "/v1/admin/conversations/" + openConv + "/resolve").then(function () { loadConv(openConv); render(true); });
+  });
+  $("#deleteConvBtn").addEventListener("click", function () {
+    if (!openConv || !confirm("Delete this conversation with its messages, lead and bookings? This can't be undone.")) return;
+    api("DELETE", "/v1/admin/conversations/" + openConv).then(function () { closeDrawer(); render(); })
+      .catch(function (err) { alert(err.message); });
   });
 
   if (KEY) login(KEY).catch(logout);

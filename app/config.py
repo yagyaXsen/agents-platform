@@ -42,8 +42,13 @@ class Settings:
     max_tenants: int
 
 
+def _env(name: str, default: str = "") -> str:
+    """A variable that is set but blank (hosting dashboards often do this) counts as unset."""
+    return os.environ.get(name, "").strip() or default
+
+
 def load() -> Settings:
-    db = os.environ.get("DATABASE_URL", f"sqlite:///{ROOT / 'agentgrid.db'}")
+    db = _env("DATABASE_URL", f"sqlite:///{ROOT / 'agentgrid.db'}")
     # Render/Heroku-style URLs use postgres:// — SQLAlchemy needs a driver name
     if db.startswith("postgres://"):
         db = "postgresql+psycopg://" + db[len("postgres://"):]
@@ -51,21 +56,21 @@ def load() -> Settings:
         db = "postgresql+psycopg://" + db[len("postgresql://"):]
     return Settings(
         database_url=db,
-        llm_base_url=os.environ.get("LLM_BASE_URL", "https://api.openai.com/v1"),
-        llm_api_key=os.environ.get("LLM_API_KEY", ""),
-        llm_model=os.environ.get("LLM_MODEL", "gpt-4o-mini"),
-        twilio_auth_token=os.environ.get("TWILIO_AUTH_TOKEN", ""),
-        twilio_account_sid=os.environ.get("TWILIO_ACCOUNT_SID", ""),
-        twilio_whatsapp_from=os.environ.get("TWILIO_WHATSAPP_FROM", ""),
-        public_base_url=os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/"),
-        cors_origins=tuple(o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",") if o.strip()),
-        log_level=os.environ.get("LOG_LEVEL", "INFO"),
-        rate_limit_public_per_min=int(os.environ.get("RATE_LIMIT_PUBLIC_PER_MIN", "30")),
-        rate_limit_admin_per_min=int(os.environ.get("RATE_LIMIT_ADMIN_PER_MIN", "300")),
-        rate_limit_auth_fails_per_min=int(os.environ.get("RATE_LIMIT_AUTH_FAILS_PER_MIN", "10")),
-        trusted_proxy_hops=int(os.environ.get("TRUSTED_PROXY_HOPS", "0")),
-        platform_admin_key=os.environ.get("PLATFORM_ADMIN_KEY", "").strip(),
-        max_tenants=int(os.environ.get("MAX_TENANTS", "100")),
+        llm_base_url=_env("LLM_BASE_URL", "https://api.openai.com/v1"),
+        llm_api_key=_env("LLM_API_KEY"),
+        llm_model=_env("LLM_MODEL", "gpt-4o-mini"),
+        twilio_auth_token=_env("TWILIO_AUTH_TOKEN"),
+        twilio_account_sid=_env("TWILIO_ACCOUNT_SID"),
+        twilio_whatsapp_from=_env("TWILIO_WHATSAPP_FROM"),
+        public_base_url=_env("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/"),
+        cors_origins=tuple(o.strip() for o in _env("CORS_ORIGINS", "*").split(",") if o.strip()),
+        log_level=_env("LOG_LEVEL", "INFO"),
+        rate_limit_public_per_min=int(_env("RATE_LIMIT_PUBLIC_PER_MIN", "30")),
+        rate_limit_admin_per_min=int(_env("RATE_LIMIT_ADMIN_PER_MIN", "300")),
+        rate_limit_auth_fails_per_min=int(_env("RATE_LIMIT_AUTH_FAILS_PER_MIN", "10")),
+        trusted_proxy_hops=int(_env("TRUSTED_PROXY_HOPS", "0")),
+        platform_admin_key=_env("PLATFORM_ADMIN_KEY"),
+        max_tenants=int(_env("MAX_TENANTS", "100")),
     )
 
 

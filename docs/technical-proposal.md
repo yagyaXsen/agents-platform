@@ -1,7 +1,7 @@
 # AgentGrid: technical proposal and PoC
 
 **RFP:** TTG-AI-AGENTGRID · **Submitted by:** Alok Kumar, bigO · **Date:** 2 November 2026
-**Live demo:** [link] · **Repository:** [link] · **Video (3 min):** [link]
+**Live demo:** https://agentgrid-poc.onrender.com · **Repository:** https://github.com/yagyaXsen/agents-platform · **Video (3 min):** [link]
 
 ---
 

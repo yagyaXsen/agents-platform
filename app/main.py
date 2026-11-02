@@ -126,27 +126,27 @@ def _conversation(db: Session, tenant: Tenant, conversation_id: str) -> Conversa
 
 # ---------------------------------------------------------------- pages
 
-@app.get("/", include_in_schema=False)
+@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
 def index() -> FileResponse:
     return FileResponse(STATIC / "index.html")
 
 
-@app.get("/demo", include_in_schema=False)
+@app.api_route("/demo", methods=["GET", "HEAD"], include_in_schema=False)
 def demo_site() -> FileResponse:
     return FileResponse(STATIC / "demo.html")
 
 
-@app.get("/admin", include_in_schema=False)
+@app.api_route("/admin", methods=["GET", "HEAD"], include_in_schema=False)
 def admin_console() -> FileResponse:
     return FileResponse(STATIC / "admin.html")
 
 
-@app.get("/platform", include_in_schema=False)
+@app.api_route("/platform", methods=["GET", "HEAD"], include_in_schema=False)
 def platform_console() -> FileResponse:
     return FileResponse(STATIC / "platform.html")
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])  # uptime checkers often send HEAD
 def health() -> dict:
     return {"ok": True, "llm": "enabled" if services.LLM.enabled else "extractive-fallback"}
 

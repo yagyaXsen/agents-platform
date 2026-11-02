@@ -6,7 +6,9 @@ person when needed, across web chat and WhatsApp.
 
 Built by Alok Kumar, [bigO](https://www.buildwithbigo.com/).
 
-> **Live demo:** `[add Render URL]` · **Video walkthrough:** `[add link]`
+> **Live demo:** https://agentgrid-poc.onrender.com · **Video walkthrough:** `[add link]`
+>
+> The free server sleeps when idle, so the first visit can take up to a minute.
 
 ## What you can try
 

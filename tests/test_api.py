@@ -380,3 +380,8 @@ def test_widget_only_works_on_allowed_websites(client):
         assert client.post("/v1/conversations", headers={**CLINIC, "Origin": "https://evil.example"}).status_code == 200
     finally:
         client.put("/v1/admin/settings/allowed-origins", headers=SKYLINE_ADMIN, json={"origins": []})
+
+
+def test_pages_answer_head_requests(client):
+    for path in ["/", "/demo", "/admin", "/platform", "/health"]:
+        assert client.head(path).status_code == 200, path

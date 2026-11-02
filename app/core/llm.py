@@ -46,17 +46,25 @@ def chat(cfg: LLMConfig, messages: list[dict], max_tokens: int = 300, temperatur
     req = urllib.request.Request(
         f"{cfg.base_url.rstrip('/')}/chat/completions",
         data=body,
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {cfg.api_key}"},
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {cfg.api_key}",
+            # some providers sit behind bot protection that rejects Python's default agent
+            "User-Agent": "agentgrid-poc/0.1",
+        },
         method="POST",
     )
     try:
         with urllib.request.urlopen(req, timeout=cfg.timeout) as resp:
             data = json.loads(resp.read().decode())
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
-        raise LLMError(str(e)) from e
+    except urllib.error.HTTPError as e:
+        detail = e.read(300).decode(errors="replace").replace("\n", " ")
+        raise LLMError(f"HTTP {e.code} from the LLM provider: {detail}") from e
+    except (OSError, ValueError) as e:  # network errors, timeouts, resets, bad JSON
+        raise LLMError(f"{type(e).__name__}: {e}") from e
     try:
         text = data["choices"][0]["message"]["content"].strip()
-    except (KeyError, IndexError, AttributeError) as e:
+    except (KeyError, IndexError, AttributeError, TypeError) as e:
         raise LLMError("unexpected response shape") from e
     tokens = int((data.get("usage") or {}).get("total_tokens") or 0)
     return text, tokens

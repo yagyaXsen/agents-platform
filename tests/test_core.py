@@ -251,3 +251,84 @@ class TestWhatsApp(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FakeLLMServer:
+    """A local stand-in for an OpenAI-compatible /chat/completions endpoint."""
+
+    def __init__(self, status=200, reply="Whitening costs ₹6,500 per session."):
+        import http.server
+        import json
+        import threading
+
+        outer = self
+        self.status, self.reply, self.requests = status, reply, []
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                outer.requests.append({"path": self.path, "headers": dict(self.headers), "body": body})
+                if outer.status != 200:
+                    self.send_response(outer.status)
+                    self.end_headers()
+                    self.wfile.write(b'{"error": {"message": "nope"}}')
+                    return
+                out = json.dumps({"choices": [{"message": {"content": outer.reply}}], "usage": {"total_tokens": 42}})
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(out.encode())
+
+            def log_message(self, *args):
+                pass
+
+        self.httpd = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+        self.url = f"http://127.0.0.1:{self.httpd.server_address[1]}/v1"
+        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+
+    def close(self):
+        self.httpd.shutdown()
+        self.httpd.server_close()
+
+
+class LLMClientTests(unittest.TestCase):
+    def cfg(self, url):
+        from app.core.llm import LLMConfig
+        return LLMConfig(url, "test-key", "test-model", timeout=5)
+
+    def test_grounded_answer(self):
+        from app.core.llm import grounded_answer
+        srv = FakeLLMServer()
+        try:
+            text, used = grounded_answer(self.cfg(srv.url), "Smile Dental", "How much is whitening?",
+                                         [("Clinic guide", "Teeth whitening costs ₹6,500 per session.")])
+        finally:
+            srv.close()
+        self.assertIn("6,500", text)
+        self.assertEqual(used, 42)
+        req = srv.requests[0]
+        self.assertEqual(req["path"], "/v1/chat/completions")
+        self.assertEqual(req["headers"]["Authorization"], "Bearer test-key")
+        self.assertNotIn("Python-urllib", req["headers"]["User-Agent"])
+        self.assertEqual(req["body"]["model"], "test-model")
+        self.assertIn("Teeth whitening costs", req["body"]["messages"][0]["content"])
+
+    def test_no_answer_escape(self):
+        from app.core.llm import grounded_answer
+        srv = FakeLLMServer(reply="NO_ANSWER")
+        try:
+            text, _ = grounded_answer(self.cfg(srv.url), "Smile Dental", "Do you sell cars?", [("Clinic guide", "...")])
+        finally:
+            srv.close()
+        self.assertIsNone(text)
+
+    def test_errors_become_llm_error(self):
+        from app.core.llm import LLMError, chat
+        srv = FakeLLMServer(status=403)
+        try:
+            with self.assertRaisesRegex(LLMError, "HTTP 403"):
+                chat(self.cfg(srv.url), [{"role": "user", "content": "hi"}])
+        finally:
+            srv.close()
+        with self.assertRaises(LLMError):  # nothing listening there any more
+            chat(self.cfg(srv.url), [{"role": "user", "content": "hi"}])

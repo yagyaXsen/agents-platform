@@ -385,3 +385,24 @@ def test_widget_only_works_on_allowed_websites(client):
 def test_pages_answer_head_requests(client):
     for path in ["/", "/demo", "/admin", "/platform", "/health"]:
         assert client.head(path).status_code == 200, path
+
+
+def test_llm_answers_and_falls_back_when_it_fails(client, monkeypatch):
+    from app import services
+    from app.core.llm import LLMConfig
+    from tests.test_core import FakeLLMServer
+
+    srv = FakeLLMServer(reply="A whitening session costs ₹6,500, and most people need one or two.")
+    try:
+        monkeypatch.setattr(services, "LLM", LLMConfig(srv.url, "test-key", "test-model", timeout=5))
+        before = client.get("/v1/admin/analytics", headers=CLINIC_ADMIN).json()["llm_tokens_used"]
+        cid = client.post("/v1/conversations", headers=CLINIC).json()["conversation_id"]
+        r = say(client, cid, "How much is teeth whitening?")
+        assert r["replies"][0].startswith("A whitening session costs") and "Source: Clinic guide" in r["replies"][0]
+        assert client.get("/v1/admin/analytics", headers=CLINIC_ADMIN).json()["llm_tokens_used"] == before + 42
+
+        srv.status = 500  # provider down: the customer still gets the answer from the document
+        r = say(client, cid, "How much is a root canal?")
+        assert "6,000" in r["replies"][0]
+    finally:
+        srv.close()
